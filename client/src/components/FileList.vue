@@ -41,14 +41,40 @@
     </v-container>
 </template>
 
-<script>
-  import path from 'path';
+<script lang="ts">
+  import Vue from 'vue';
+  import Component from 'vue-class-component';
 
-  function formatItemsCount(count) {
+  enum FileItemType {
+    file = 'file',
+    directory = 'directory',
+  }
+
+  interface FileData {
+    fileName: string;
+    path: string;
+    modifiedDate: Date;
+    size: number;
+    itemsCount: number;
+    type: FileItemType;
+  }
+
+  function resolvePath(...args: string[]): string {
+    const pathParts: string[] = args.reduce((acc: string[], el: string): string[] => {
+      const pathParts = el
+        .trim()
+        .split('/')
+        .filter((el: string): boolean => !!el);
+      return [...acc, ...pathParts]
+    }, [""]);
+    return pathParts.join('/') || '/'
+  }
+
+  function formatItemsCount(count: number) {
     return `${count > 0 ? count : '?'} item${count === 1 ? '' : 's'}`;
   }
 
-  function formatFileSize(bytes, decimals = 2) {
+  function formatFileSize(bytes: number, decimals = 2) {
     if (bytes === 0) return '0 Bytes';
 
     const k = 1024;
@@ -60,78 +86,81 @@
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   }
 
-  export default {
+  @Component({
     name: 'FileList',
-    data() {
-      return {
-        path: '/',
-        files: [],
-        isFetching: false,
-      };
-    },
-    mounted() {
-      this.fetchFileList();
-    },
-    methods: {
-      fetchFileList() {
-        this.isFetching = true;
-        fetch(new URL('/api' + this.path, 'http://localhost:3000/api/'))
-          .then((response) => {
-            return response.json();
-          })
-          .then((data) => {
-            this.files = data;
-          })
-          .finally(() => {
-            this.isFetching = false;
-          });
-      },
-      handleFileSelect(file) {
-        if (this.isFetching) return;
-
-        if (file.type === 'file') return;
-        this.path = path.resolve(this.path, file.fileName);
-        console.log(this.path);
-        this.fetchFileList();
-      },
-      handleBack() {
-        if (this.isFetching) return;
-
-        const pathParts = this.path.split('/');
-        const backPath = path.resolve(...pathParts.slice(0, pathParts.length - 1));
-        this.path = backPath;
-        this.fetchFileList();
-      },
-    },
-    computed: {
-      orderedFiles() {
-        return [...this.files].sort((a, b) => {
-          // Order by type
-          if (a.type === 'file' && b.type === 'directory') return 1;
-          if (a.type === 'directory' && b.type === 'file') return -1;
-
-          // Order by name
-          if (a.fileName > b.fileName) return 1;
-          if (b.fileName > a.fileName) return -1;
-          return 0;
-        });
-      },
-    },
     filters: {
-      formatSize(file) {
+      formatSize(file: FileData) {
         switch (file.type) {
           case 'file':
             return formatFileSize(file.size);
           case 'directory':
             return formatItemsCount(file.itemsCount);
+          default:
+            return ''
         }
       },
-      formatIcon(file) {
-        if (file.type === 'file') return 'description';
+      formatIcon(file: FileData) {
+        if (file.type === 'file') return 'description'
         if (file.type === 'directory') return 'folder';
-      },
+      }
+      ,
     },
-  };
+  })
+  export default class FileList extends Vue {
+    path = '/';
+    files: FileData[] = [];
+    isFetching = false;
+
+
+    mounted() {
+      this.fetchFileList();
+    }
+
+    fetchFileList(): void {
+      this.isFetching = true;
+      const url: string = new URL('/api' + this.path, 'http://localhost:3000/api/').toString()
+      fetch(url)
+        .then((response: any) => {
+          return response.json();
+        })
+        .then((data: FileData[]) => {
+          this.files = data;
+        })
+        .finally(() => {
+          this.isFetching = false;
+        });
+    }
+
+    handleFileSelect(file: FileData): void {
+      if (this.isFetching) return;
+
+      if (file.type === 'file') return;
+      this.path = resolvePath(this.path, file.fileName);
+      this.fetchFileList();
+    }
+
+    handleBack(): void {
+      if (this.isFetching) return;
+
+      const pathParts = this.path.split('/');
+      const backPath = resolvePath(...pathParts.slice(0, pathParts.length - 1));
+      this.path = backPath;
+      this.fetchFileList();
+    }
+
+    get orderedFiles(): FileData[] {
+      return [...this.files].sort((a: FileData, b: FileData): number => {
+        // Order by type
+        if (a.type === 'file' && b.type === 'directory') return 1;
+        if (a.type === 'directory' && b.type === 'file') return -1;
+
+        // Order by name
+        if (a.fileName > b.fileName) return 1;
+        if (b.fileName > a.fileName) return -1;
+        return 0;
+      });
+    }
+  }
 </script>
 
 <style scoped>

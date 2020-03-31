@@ -1,23 +1,22 @@
 <template>
     <v-app>
-        <v-content>
-            <FileList/>
-        </v-content>
+        <FileList/>
     </v-app>
 </template>
 
-<script>
-  import FileList from '@/components/FileList';
+<script lang="ts">
+  import Vue from 'vue';
+  import Component from 'vue-class-component'
 
-  export default {
+  import FileList from '@/components/FileList.vue'
+
+  @Component({
     name: 'App',
-
     components: {
-      FileList,
+      FileList
     },
+  })
+  export default class App extends Vue {
+  }
 
-    data: () => ({
-      //
-    }),
-  };
 </script>
